@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+body {
+  background-color: #0F172A;
+  color: #F1F5F9;
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Custom scrollbars for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0F172A;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+@media print {
+  header, #piano-input-panel, #exam-controls-panel, footer, button {
+    display: none !important;
+  }
+  body, main {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #staff-canvas-wrapper {
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  #music-sheet-svg line, #music-sheet-svg text {
+    stroke: black !important;
+    fill: black !important;
+  }
+}
+

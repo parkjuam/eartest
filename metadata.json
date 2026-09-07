@@ -1,0 +1,6 @@
+{
+  "name": "다장조 8마디 청음 악보",
+  "description": "다장조 4/4박자 8마디 전용 학생 청음 수행 평가 및 악보 작업 프로그램",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
