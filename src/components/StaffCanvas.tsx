@@ -16,6 +16,8 @@ interface StaffCanvasProps {
   onSelectMeasure?: (idx: number) => void;
   title?: string;
   readOnly?: boolean;
+  studentId?: string;
+  studentName?: string;
 }
 
 export const StaffCanvas: React.FC<StaffCanvasProps> = ({
@@ -29,6 +31,8 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
   onSelectMeasure,
   title,
   readOnly = false,
+  studentId = '',
+  studentName = '',
 }) => {
   // Ensure we have exactly 8 measures (indices 0..7)
   const safeMeasures = Array.from({ length: 8 }, (_, i) => {
@@ -42,28 +46,28 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
   const headerOffset = clefWidth + timeSigWidth + 15; // ~105px
   const measureWidth = 215; // 4 measures * 215 = 860px
   const svgWidth = headerOffset + 4 * measureWidth + 25; // 105 + 860 + 25 = 990px
-  const svgHeight = 425;
+  const svgHeight = 430;
 
   // System 1 (Top: Measures 1 to 4)
-  // bottom line 1 (E4) = 112
-  // line 2 (G4) = 96
-  // line 3 (B4, middle) = 80
-  // line 4 (D5) = 64
-  // line 5 (F5, top) = 48
-  const firstLineY1 = 112;
-  const staffTopY1 = firstLineY1 - 4 * staffLineSpacing; // 48
-  const staffBottomY1 = firstLineY1; // 112
+  // bottom line 1 (E4) = 145
+  // line 2 (G4) = 129
+  // line 3 (B4, middle) = 113
+  // line 4 (D5) = 97
+  // line 5 (F5, top) = 81
+  const firstLineY1 = 145;
+  const staffTopY1 = firstLineY1 - 4 * staffLineSpacing; // 81
+  const staffBottomY1 = firstLineY1; // 145
   const system1Measures = [0, 1, 2, 3];
 
   // System 2 (Bottom: Measures 5 to 8)
-  // bottom line 1 (E4) = 302
-  // line 2 (G4) = 286
-  // line 3 (B4, middle) = 270
-  // line 4 (D5) = 254
-  // line 5 (F5, top) = 238
-  const firstLineY2 = 302;
-  const staffTopY2 = firstLineY2 - 4 * staffLineSpacing; // 238
-  const staffBottomY2 = firstLineY2; // 302
+  // bottom line 1 (E4) = 330
+  // line 2 (G4) = 314
+  // line 3 (B4, middle) = 298
+  // line 4 (D5) = 282
+  // line 5 (F5, top) = 266
+  const firstLineY2 = 330;
+  const staffTopY2 = firstLineY2 - 4 * staffLineSpacing; // 266
+  const staffBottomY2 = firstLineY2; // 330
   const system2Measures = [4, 5, 6, 7];
 
   // Track hover state for phantom preview
@@ -78,8 +82,9 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
   ) => {
     if (readOnly) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const relativeYInsideRect = e.clientY - rect.top;
-    const actualSvgY = (relativeYInsideRect / rect.height) * 160 + (mIdx < 4 ? 20 : 210);
+    const relativeFraction = (e.clientY - rect.top) / rect.height;
+    // The interactive rect spans from (firstLineY - 72) with height 140
+    const actualSvgY = (firstLineY - 72) + relativeFraction * 140;
 
     const candidates = PITCH_DEFINITIONS.filter(p => p.staffStep >= -2 && p.staffStep <= 9);
 
@@ -232,7 +237,7 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
               {!readOnly && (
                 <rect
                   x={measureStartX}
-                  y={systemBoxTopY + 28}
+                  y={firstLineY - 72}
                   width={measureWidth}
                   height={140}
                   fill={
@@ -242,7 +247,7 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
                       ? 'rgba(255, 255, 255, 0.04)'
                       : 'transparent'
                   }
-                  className="cursor-pointer transition-colors"
+                  className="interactive-rect cursor-pointer transition-colors"
                   onMouseMove={e => handleMouseMoveOnMeasure(e, mIdx, firstLineY)}
                   onMouseLeave={handleMouseLeave}
                   onClick={() => {
@@ -341,7 +346,7 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
                         fill="rgba(245, 158, 11, 0.25)"
                         stroke="#f59e0b"
                         strokeWidth="2.5"
-                        className="animate-pulse"
+                        className="audio-highlight-circle animate-pulse"
                       />
                     )}
 
@@ -405,7 +410,7 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
                     {pitchDef && (
                       <text
                         x={noteX}
-                        y={firstLineY + 36}
+                        y={firstLineY + 32}
                         fontSize="12"
                         fontFamily="sans-serif"
                         fontWeight="bold"
@@ -420,7 +425,8 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
                     {/* Individual Note Delete Button (Appears on hover) */}
                     {!readOnly && (
                       <g
-                        className="opacity-0 group-hover/note:opacity-100 transition-opacity cursor-pointer print:hidden"
+                        className="note-delete-btn opacity-0 group-hover/note:opacity-100 transition-opacity cursor-pointer print:hidden"
+                        data-export-ignore="true"
                         onClick={e => {
                           e.stopPropagation();
                           onDeleteNote(mIdx, nIdx);
@@ -428,7 +434,7 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
                       >
                         <circle
                           cx={noteX}
-                          cy={firstLineY + 54}
+                          cy={firstLineY + 48}
                           r="9"
                           fill="#7f1d1d"
                           stroke="#ef4444"
@@ -436,7 +442,7 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
                         />
                         <text
                           x={noteX}
-                          y={firstLineY + 57.5}
+                          y={firstLineY + 51.5}
                           fontSize="10"
                           textAnchor="middle"
                           fill="#fecaca"
@@ -468,7 +474,7 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
                   const ledgerSteps = getLedgerLines(hStep);
 
                   return (
-                    <g className="pointer-events-none opacity-85 print:hidden">
+                    <g className="phantom-note pointer-events-none opacity-85 print:hidden" data-export-ignore="true">
                       {/* Phantom Ledger lines */}
                       {ledgerSteps.map(lStep => {
                         const lY = getStaffY(lStep, firstLineY, staffLineSpacing);
@@ -565,10 +571,21 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
             {title || '다장조 8마디 청음 악보 (C Major)'}
           </h3>
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-400 print:text-slate-600 font-medium">
-          <span>4/4 박자</span>
-          <span>•</span>
-          <span>다장조 (C Major)</span>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 font-medium">
+          <div className="flex items-center gap-1.5 bg-[#0F172A] px-2.5 py-1 rounded-lg border border-slate-700">
+            <span className="text-slate-400 font-semibold">학번:</span>
+            <span className="font-bold text-amber-300 font-mono">{studentId ? studentId : '미입력'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-[#0F172A] px-2.5 py-1 rounded-lg border border-slate-700">
+            <span className="text-slate-400 font-semibold">이름:</span>
+            <span className="font-bold text-amber-300">{studentName ? studentName : '미입력'}</span>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 text-slate-400 print:text-slate-600">
+            <span>•</span>
+            <span>4/4 박자</span>
+            <span>•</span>
+            <span>다장조 (C Major)</span>
+          </div>
         </div>
       </div>
 
@@ -592,6 +609,63 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
             rx="12"
             className="print:fill-white"
           />
+
+          {/* Top Score Banner inside SVG (Saved in Image & Print) */}
+          <g className="score-svg-header">
+            {/* Title */}
+            <text
+              x={25}
+              y={30}
+              fontSize="17"
+              fontWeight="bold"
+              fontFamily="sans-serif"
+              fill="#f8fafc"
+              className="print:fill-slate-950"
+            >
+              {title || '다장조 8마디 청음 악보'}
+            </text>
+
+            <text
+              x={255}
+              y={30}
+              fontSize="12"
+              fontFamily="sans-serif"
+              fill="#94a3b8"
+              className="print:fill-slate-600"
+            >
+              4/4 박자 • 다장조 (C Major)
+            </text>
+
+            {/* Student ID & Name on right */}
+            <text
+              x={svgWidth - 25}
+              y={30}
+              fontSize="14"
+              fontFamily="sans-serif"
+              textAnchor="end"
+              className="print:fill-slate-950"
+            >
+              <tspan fill="#94a3b8" className="print:fill-slate-700">학번: </tspan>
+              <tspan fill="#f59e0b" fontWeight="bold" className="print:fill-slate-950 font-mono">
+                {studentId ? studentId : '________'}
+              </tspan>
+              <tspan fill="#94a3b8" className="print:fill-slate-700">    이름: </tspan>
+              <tspan fill="#f59e0b" fontWeight="bold" className="print:fill-slate-950">
+                {studentName ? studentName : '________'}
+              </tspan>
+            </text>
+
+            {/* Divider line */}
+            <line
+              x1={20}
+              y1={46}
+              x2={svgWidth - 25}
+              y2={46}
+              stroke="#334155"
+              strokeWidth="1.2"
+              className="print:stroke-slate-300"
+            />
+          </g>
 
           {/* System 1 (Top: 1~4마디) */}
           {renderSystem(0, system1Measures, firstLineY1, staffTopY1, staffBottomY1, 14)}

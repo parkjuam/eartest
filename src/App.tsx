@@ -4,7 +4,7 @@ import { audioManager } from './utils/audio';
 import { Header } from './components/Header';
 import { ScoreToolbar } from './components/ScoreToolbar';
 import { StaffCanvas } from './components/StaffCanvas';
-import { Info, Sparkles, CheckCircle2, Check } from 'lucide-react';
+import { Info, Sparkles, CheckCircle2, Check, UserCheck } from 'lucide-react';
 
 // Initialize exactly 8 blank measures for 4/4 time
 function createInitial8Measures(): Measure[] {
@@ -23,11 +23,27 @@ export default function App() {
   const [bpm, setBpm] = useState<number>(72);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(() => audioManager.getMuted());
+  const [studentId, setStudentId] = useState<string>(() => {
+    return localStorage.getItem('music_eval_student_id') || '';
+  });
+  const [studentName, setStudentName] = useState<string>(() => {
+    return localStorage.getItem('music_eval_student_name') || '';
+  });
   const [highlightedNote, setHighlightedNote] = useState<{
     measureIdx: number;
     noteIdx: number | null;
   } | null>(null);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
+
+  const handleStudentIdChange = (val: string) => {
+    setStudentId(val);
+    localStorage.setItem('music_eval_student_id', val);
+  };
+
+  const handleStudentNameChange = (val: string) => {
+    setStudentName(val);
+    localStorage.setItem('music_eval_student_name', val);
+  };
 
   // Toggle Mute
   const handleToggleMute = useCallback(() => {
@@ -203,9 +219,16 @@ export default function App() {
       // Clone svg to manipulate without affecting DOM
       const clonedSvg = svgElement.cloneNode(true) as SVGSVGElement;
       
+      // CRITICAL: Remove all interactive note delete buttons (the red 'x' circles)
+      clonedSvg.querySelectorAll('.note-delete-btn, [data-export-ignore="true"]').forEach((el) => el.remove());
+      // Remove interactive measure click rects
+      clonedSvg.querySelectorAll('.interactive-rect').forEach((el) => el.remove());
+      // Remove phantom preview note and active audio playing aura
+      clonedSvg.querySelectorAll('.phantom-note, .audio-highlight-circle').forEach((el) => el.remove());
+
       // Ensure dimensions are specified
       const width = 990;
-      const height = 425;
+      const height = 430;
       clonedSvg.setAttribute('width', `${width}`);
       clonedSvg.setAttribute('height', `${height}`);
 
@@ -239,8 +262,20 @@ export default function App() {
         // Convert to PNG and download
         const pngUrl = canvas.toDataURL('image/png');
         const downloadLink = document.createElement('a');
-        const dateStr = new Date().toISOString().slice(0, 10);
-        downloadLink.download = `다장조_8마디_청음악보_${dateStr}.png`;
+        
+        // Use student ID as filename as requested: "파일명을 학번으로해줘"
+        const trimmedId = studentId.trim();
+        const sanitizedId = trimmedId.replace(/[\\/:*?"<>|]/g, '');
+        let filename = '';
+        if (sanitizedId) {
+          filename = `${sanitizedId}.png`;
+        } else if (studentName.trim()) {
+          filename = `${studentName.trim().replace(/[\\/:*?"<>|]/g, '')}.png`;
+        } else {
+          filename = `다장조_8마디_청음악보.png`;
+        }
+
+        downloadLink.download = filename;
         downloadLink.href = pngUrl;
         document.body.appendChild(downloadLink);
         downloadLink.click();
@@ -249,7 +284,11 @@ export default function App() {
         window.URL.revokeObjectURL(blobURL);
 
         // Show feedback notification
-        setSaveSuccessNotice('악보가 그림파일(PNG)로 저장되었습니다!');
+        setSaveSuccessNotice(
+          sanitizedId
+            ? `악보가 "${filename}" 파일로 저장되었습니다!`
+            : '악보가 그림파일(PNG)로 저장되었습니다! (학번을 입력하시면 파일명이 학번으로 저장됩니다)'
+        );
         setTimeout(() => {
           setSaveSuccessNotice(null);
         }, 3500);
@@ -259,7 +298,7 @@ export default function App() {
     } catch (err) {
       console.error('Image save error:', err);
     }
-  }, []);
+  }, [studentId, studentName]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -309,10 +348,63 @@ export default function App() {
         {/* Printable Score Header (Only visible on paper print) */}
         <div className="hidden print:block mb-6 text-center border-b-2 border-slate-900 pb-4">
           <h1 className="text-2xl font-bold font-serif text-slate-950">청음 수행 평가</h1>
-          <div className="flex justify-between items-center text-xs text-slate-700 mt-3 px-2">
-            <span>이름: ___________________</span>
+          <div className="flex justify-between items-center text-xs text-slate-700 mt-3 px-2 font-medium">
+            <span>학번: {studentId || '___________________'}</span>
+            <span>이름: {studentName || '___________________'}</span>
             <span>4/4 박자 • 다장조 (C Major)</span>
             <span>날짜: 202____. ____. ____</span>
+          </div>
+        </div>
+
+        {/* Student Info Input Section (학번 및 이름 입력) */}
+        <div className="bg-[#1E293B] rounded-2xl border border-slate-800 p-3.5 sm:p-4 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-slate-100 print:hidden">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-bold text-slate-100 flex items-center gap-2">
+                <span>학생(수험생) 정보 입력</span>
+                {studentId.trim() && (
+                  <span className="text-[11px] font-normal text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full font-mono">
+                    저장 파일명: {studentId.trim()}.png
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400">
+                학번과 이름을 입력하면 악보 및 그림 파일(PNG)에 함께 기록되고, 파일명이 학번으로 저장됩니다.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+              <label htmlFor="student-id-input" className="text-xs font-bold text-slate-300 whitespace-nowrap">
+                학번:
+              </label>
+              <input
+                id="student-id-input"
+                type="text"
+                value={studentId}
+                onChange={(e) => handleStudentIdChange(e.target.value)}
+                placeholder="예: 10412"
+                className="w-full sm:w-32 bg-[#0F172A] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 font-mono font-bold focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+              <label htmlFor="student-name-input" className="text-xs font-bold text-slate-300 whitespace-nowrap">
+                이름:
+              </label>
+              <input
+                id="student-name-input"
+                type="text"
+                value={studentName}
+                onChange={(e) => handleStudentNameChange(e.target.value)}
+                placeholder="예: 홍길동"
+                className="w-full sm:w-32 bg-[#0F172A] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 font-bold focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+              />
+            </div>
           </div>
         </div>
 
@@ -343,6 +435,8 @@ export default function App() {
           selectedMeasureIdx={selectedMeasureIdx}
           onSelectMeasure={setSelectedMeasureIdx}
           title="다장조 8마디 청음 악보"
+          studentId={studentId}
+          studentName={studentName}
         />
 
         {/* Status & Guide Cards */}
