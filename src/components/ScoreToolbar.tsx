@@ -14,6 +14,7 @@ interface ScoreToolbarProps {
   totalNotesCount: number;
   isMuted?: boolean;
   onToggleMute?: () => void;
+  hasChords?: boolean;
 }
 
 export const ScoreToolbar: React.FC<ScoreToolbarProps> = ({
@@ -28,6 +29,7 @@ export const ScoreToolbar: React.FC<ScoreToolbarProps> = ({
   totalNotesCount,
   isMuted,
   onToggleMute,
+  hasChords = false,
 }) => {
   return (
     <div
@@ -117,13 +119,13 @@ export const ScoreToolbar: React.FC<ScoreToolbarProps> = ({
             <button
               type="button"
               id="play-all-score-btn"
-              disabled={totalNotesCount === 0}
+              disabled={totalNotesCount === 0 && !hasChords}
               onClick={onPlayAll}
               className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 rounded-xl text-xs font-bold transition-all shadow-xs"
-              title="내가 작성한 8마디 전체 멜로디를 재생합니다"
+              title="내가 작성한 8마디 전체 멜로디와 화음(코드)을 함께 재생합니다"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>내 악보 전체 듣기</span>
+              <span>전체 듣기 (화음+멜로디)</span>
             </button>
           )}
 

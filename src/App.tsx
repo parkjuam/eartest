@@ -4,7 +4,8 @@ import { audioManager } from './utils/audio';
 import { Header } from './components/Header';
 import { ScoreToolbar } from './components/ScoreToolbar';
 import { StaffCanvas } from './components/StaffCanvas';
-import { Info, Sparkles, CheckCircle2, Check, UserCheck } from 'lucide-react';
+import { ChordPanel } from './components/ChordPanel';
+import { Info, Sparkles, CheckCircle2, Check, UserCheck, Music } from 'lucide-react';
 
 // Initialize exactly 8 blank measures for 4/4 time
 function createInitial8Measures(): Measure[] {
@@ -13,6 +14,8 @@ function createInitial8Measures(): Measure[] {
     measureNumber: i + 1,
     notes: [],
     totalBeats: 0,
+    chord1: null,
+    chord2: null,
   }));
 }
 
@@ -53,6 +56,13 @@ export default function App() {
 
   // Total notes count across all 8 measures
   const totalNotesCount = measures.reduce((acc, m) => acc + m.notes.length, 0);
+
+  // Chords state across measures
+  const hasChords = measures.some((m) => Boolean(m.chord1 || m.chord2));
+  const totalChordsCount = measures.reduce(
+    (acc, m) => acc + (m.chord1 ? 1 : 0) + (m.chord2 ? 1 : 0),
+    0
+  );
 
   // Completed measures count (measures with 4 beats)
   const completedMeasuresCount = measures.filter((m) => m.totalBeats === 4).length;
@@ -156,9 +166,66 @@ export default function App() {
     setSelectedMeasureIdx(0);
   }, []);
 
-  // Play entire 8 measures
+  // Set chord for measure (slot 1 = Beat 1, slot 2 = Beat 3)
+  const handleSetChord = useCallback(
+    (measureIdx: number, slot: 1 | 2, chord: string | null) => {
+      setMeasures((prev) => {
+        return prev.map((measure, mIdx) => {
+          if (mIdx !== measureIdx) return measure;
+          if (slot === 1) {
+            return {
+              ...measure,
+              chord1: chord,
+              chord2: chord ? measure.chord2 : null,
+            };
+          } else {
+            return {
+              ...measure,
+              chord2: chord,
+            };
+          }
+        });
+      });
+    },
+    []
+  );
+
+  // Apply chord progression preset across 8 measures
+  const handleApplyPresetChords = useCallback(
+    (presetChords: { m: number; c1: string | null; c2: string | null }[]) => {
+      setMeasures((prev) => {
+        return prev.map((measure, mIdx) => {
+          const p = presetChords.find((item) => item.m === mIdx + 1);
+          if (p) {
+            return {
+              ...measure,
+              chord1: p.c1,
+              chord2: p.c2,
+            };
+          }
+          return measure;
+        });
+      });
+      // Audition tonic C chord
+      audioManager.playChord('C', 1.5, undefined, true);
+    },
+    []
+  );
+
+  // Clear all chords across 8 measures
+  const handleClearAllChords = useCallback(() => {
+    setMeasures((prev) =>
+      prev.map((m) => ({
+        ...m,
+        chord1: null,
+        chord2: null,
+      }))
+    );
+  }, []);
+
+  // Play entire 8 measures (Melody + Chords together)
   const handlePlayAll = useCallback(() => {
-    if (totalNotesCount === 0) return;
+    if (totalNotesCount === 0 && !hasChords) return;
     setIsPlaying(true);
 
     audioManager.playMelody(measures, bpm, {
@@ -171,14 +238,15 @@ export default function App() {
         setHighlightedNote(null);
       },
     });
-  }, [measures, bpm, totalNotesCount]);
+  }, [measures, bpm, totalNotesCount, hasChords]);
 
-  // Play a specific measure by index (e.g. from measure speaker icon)
+  // Play a specific measure by index (e.g. from measure speaker icon or chord panel)
   const handlePlayMeasure = useCallback(
     (measureIndex: number) => {
       setSelectedMeasureIdx(measureIndex);
-      const mNotes = measures[measureIndex]?.notes || [];
-      if (mNotes.length === 0) {
+      const m = measures[measureIndex];
+      const hasContent = m && (m.notes.length > 0 || m.chord1 || m.chord2);
+      if (!hasContent) {
         audioManager.playClick(false);
         return;
       }
@@ -419,6 +487,7 @@ export default function App() {
           bpm={bpm}
           onChangeBpm={setBpm}
           totalNotesCount={totalNotesCount}
+          hasChords={hasChords}
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
         />
@@ -434,9 +503,23 @@ export default function App() {
           highlightedNote={highlightedNote}
           selectedMeasureIdx={selectedMeasureIdx}
           onSelectMeasure={setSelectedMeasureIdx}
+          onSetChord={handleSetChord}
+          onSelectChordSlot={(mIdx) => setSelectedMeasureIdx(mIdx)}
           title="다장조 8마디 청음 악보"
           studentId={studentId}
           studentName={studentName}
+        />
+
+        {/* Chord Accompaniment Panel (화음 반주 입력 - 첫 째박, 셋 째박) */}
+        <ChordPanel
+          measures={measures}
+          selectedMeasureIdx={selectedMeasureIdx}
+          onSelectMeasure={setSelectedMeasureIdx}
+          onSetChord={handleSetChord}
+          onApplyPreset={handleApplyPresetChords}
+          onClearAllChords={handleClearAllChords}
+          onPlayMeasure={handlePlayMeasure}
+          isPlaying={isPlaying}
         />
 
         {/* Status & Guide Cards */}
@@ -451,7 +534,7 @@ export default function App() {
               <div className="text-sm font-bold text-slate-100">
                 {completedMeasuresCount} / 8마디 완성{' '}
                 <span className="text-xs font-normal text-slate-400">
-                  (전체 음표 {totalNotesCount}개)
+                  (음표 {totalNotesCount}개 • 코드 {totalChordsCount}개)
                 </span>
               </div>
             </div>

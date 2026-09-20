@@ -18,6 +18,8 @@ interface StaffCanvasProps {
   readOnly?: boolean;
   studentId?: string;
   studentName?: string;
+  onSetChord?: (measureIdx: number, slot: 1 | 2, chord: string | null) => void;
+  onSelectChordSlot?: (measureIdx: number, slot: 1 | 2) => void;
 }
 
 export const StaffCanvas: React.FC<StaffCanvasProps> = ({
@@ -33,6 +35,8 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
   readOnly = false,
   studentId = '',
   studentName = '',
+  onSetChord,
+  onSelectChordSlot,
 }) => {
   // Ensure we have exactly 8 measures (indices 0..7)
   const safeMeasures = Array.from({ length: 8 }, (_, i) => {
@@ -232,6 +236,181 @@ export const StaffCanvas: React.FC<StaffCanvasProps> = ({
               >
                 {mIdx + 1}
               </text>
+
+              {/* Chords display above the staff (코드는 악보 위에 표시) */}
+              {/* 1st Beat Chord (첫 째박 코드) */}
+              {measure.chord1 ? (
+                <g
+                  className="cursor-pointer group/c1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectMeasure) onSelectMeasure(mIdx);
+                    if (onSelectChordSlot) onSelectChordSlot(mIdx, 1);
+                    audioManager.playChord(measure.chord1!, 1.4, undefined, true);
+                  }}
+                  title={`제 ${mIdx + 1}마디 첫 째박: ${measure.chord1} 코드 (클릭 시 연주 및 편집)`}
+                >
+                  <rect
+                    x={measureStartX + 24}
+                    y={staffTopY - 26}
+                    width={Math.max(34, measure.chord1.length * 10 + 16)}
+                    height={20}
+                    rx={5}
+                    fill="rgba(56, 189, 248, 0.16)"
+                    stroke="#38bdf8"
+                    strokeWidth="1.2"
+                    className="print:fill-white print:stroke-slate-800"
+                  />
+                  <text
+                    x={measureStartX + 24 + Math.max(34, measure.chord1.length * 10 + 16) / 2}
+                    y={staffTopY - 12}
+                    fontSize="13"
+                    fontFamily="'Helvetica Neue', Arial, sans-serif"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    fill="#38bdf8"
+                    className="select-none print:fill-slate-950 font-bold"
+                  >
+                    {measure.chord1}
+                  </text>
+                </g>
+              ) : !readOnly ? (
+                <g
+                  className="cursor-pointer opacity-40 hover:opacity-100 transition-opacity print:hidden"
+                  data-export-ignore="true"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectMeasure) onSelectMeasure(mIdx);
+                    if (onSelectChordSlot) onSelectChordSlot(mIdx, 1);
+                  }}
+                  title="첫 째박 코드 추가하기"
+                >
+                  <rect
+                    x={measureStartX + 24}
+                    y={staffTopY - 24}
+                    width={44}
+                    height={18}
+                    rx={4}
+                    fill="rgba(255, 255, 255, 0.04)"
+                    stroke="#64748b"
+                    strokeDasharray="2,2"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={measureStartX + 46}
+                    y={staffTopY - 11}
+                    fontSize="10"
+                    fontFamily="sans-serif"
+                    fill="#94a3b8"
+                    textAnchor="middle"
+                    className="select-none"
+                  >
+                    +1박코드
+                  </text>
+                </g>
+              ) : null}
+
+              {/* 3rd Beat Chord (셋 째박 코드 - 생략 가능) */}
+              {measure.chord2 ? (
+                <g
+                  className="cursor-pointer group/c2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectMeasure) onSelectMeasure(mIdx);
+                    if (onSelectChordSlot) onSelectChordSlot(mIdx, 2);
+                    audioManager.playChord(measure.chord2!, 1.4, undefined, true);
+                  }}
+                  title={`제 ${mIdx + 1}마디 셋 째박: ${measure.chord2} 코드 (클릭 시 연주 및 편집)`}
+                >
+                  <rect
+                    x={measureStartX + measureWidth * 0.5 + 4}
+                    y={staffTopY - 26}
+                    width={Math.max(34, measure.chord2.length * 10 + 16)}
+                    height={20}
+                    rx={5}
+                    fill="rgba(192, 132, 252, 0.16)"
+                    stroke="#c084fc"
+                    strokeWidth="1.2"
+                    className="print:fill-white print:stroke-slate-800"
+                  />
+                  <text
+                    x={measureStartX + measureWidth * 0.5 + 4 + Math.max(34, measure.chord2.length * 10 + 16) / 2}
+                    y={staffTopY - 12}
+                    fontSize="13"
+                    fontFamily="'Helvetica Neue', Arial, sans-serif"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    fill="#c084fc"
+                    className="select-none print:fill-slate-950 font-bold"
+                  >
+                    {measure.chord2}
+                  </text>
+                  {/* Hover omit button (생략) */}
+                  {!readOnly && (
+                    <g
+                      className="opacity-0 group-hover/c2:opacity-100 transition-opacity print:hidden"
+                      data-export-ignore="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onSetChord) onSetChord(mIdx, 2, null);
+                      }}
+                      title="3박 코드 생략하기"
+                    >
+                      <circle
+                        cx={measureStartX + measureWidth * 0.5 + 4 + Math.max(34, measure.chord2.length * 10 + 16)}
+                        cy={staffTopY - 24}
+                        r={6}
+                        fill="#ef4444"
+                      />
+                      <text
+                        x={measureStartX + measureWidth * 0.5 + 4 + Math.max(34, measure.chord2.length * 10 + 16)}
+                        y={staffTopY - 20}
+                        fontSize="9"
+                        fontWeight="bold"
+                        fill="#ffffff"
+                        textAnchor="middle"
+                        className="select-none pointer-events-none"
+                      >
+                        ×
+                      </text>
+                    </g>
+                  )}
+                </g>
+              ) : !readOnly && measure.chord1 ? (
+                <g
+                  className="cursor-pointer opacity-30 hover:opacity-100 transition-opacity print:hidden"
+                  data-export-ignore="true"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectMeasure) onSelectMeasure(mIdx);
+                    if (onSelectChordSlot) onSelectChordSlot(mIdx, 2);
+                  }}
+                  title="셋 째박 코드 추가하기 (선택 • 생략 가능)"
+                >
+                  <rect
+                    x={measureStartX + measureWidth * 0.5 + 4}
+                    y={staffTopY - 24}
+                    width={40}
+                    height={18}
+                    rx={4}
+                    fill="rgba(255, 255, 255, 0.03)"
+                    stroke="#64748b"
+                    strokeDasharray="2,2"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={measureStartX + measureWidth * 0.5 + 24}
+                    y={staffTopY - 11}
+                    fontSize="10"
+                    fontFamily="sans-serif"
+                    fill="#94a3b8"
+                    textAnchor="middle"
+                    className="select-none"
+                  >
+                    +3박
+                  </text>
+                </g>
+              ) : null}
 
               {/* Interactive Click/Hover Zone for Measure */}
               {!readOnly && (

@@ -1,10 +1,11 @@
 import { Measure } from '../types';
 import { getPitchDef } from './musicTheory';
+import { getChordDef } from './chords';
 
 class AudioManager {
   private ctx: AudioContext | null = null;
   private isPlaying = false;
-  private isMuted = true; // Initially sound is off (muted)
+  private isMuted = false; // Initially sound is ON for instant feedback
   private timeouts: number[] = [];
 
   setMuted(muted: boolean) {
@@ -29,6 +30,59 @@ class AudioManager {
       this.ctx.resume();
     }
     return this.ctx;
+  }
+
+  // Play a rich polyphonic piano chord (e.g. C = C3 + C4 + E4 + G4)
+  playChord(chordName: string, durationSeconds = 1.6, startTime?: number, forcePlay = false) {
+    if (this.isMuted && !forcePlay) return;
+    const ctx = this.getContext();
+    const chordDef = getChordDef(chordName);
+    if (!chordDef) return;
+
+    const t = startTime !== undefined ? startTime : ctx.currentTime;
+
+    // Synthesize each note in the chord with harmonic richness and subtle humanization
+    chordDef.frequencies.forEach((freq, idx) => {
+      const isBass = idx === 0;
+      const masterGain = ctx.createGain();
+      const volume = isBass ? 0.32 : 0.20;
+      const attackTime = t + 0.008 + idx * 0.005; // slight natural strum
+
+      masterGain.gain.setValueAtTime(0, t);
+      masterGain.gain.linearRampToValueAtTime(volume, attackTime);
+      masterGain.gain.exponentialRampToValueAtTime(0.0005, t + durationSeconds + 0.2);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(Math.min(2600, freq * 4), t);
+      filter.frequency.exponentialRampToValueAtTime(Math.min(850, freq * 1.6), t + durationSeconds);
+
+      const osc1 = ctx.createOscillator();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(freq, t);
+
+      const osc2 = ctx.createOscillator();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(freq * 2, t);
+
+      const oscGain1 = ctx.createGain();
+      oscGain1.gain.setValueAtTime(0.7, t);
+      const oscGain2 = ctx.createGain();
+      oscGain2.gain.setValueAtTime(0.25, t);
+
+      osc1.connect(oscGain1);
+      osc2.connect(oscGain2);
+      oscGain1.connect(filter);
+      oscGain2.connect(filter);
+
+      filter.connect(masterGain);
+      masterGain.connect(ctx.destination);
+
+      osc1.start(t);
+      osc2.start(t);
+      osc1.stop(t + durationSeconds + 0.25);
+      osc2.stop(t + durationSeconds + 0.25);
+    });
   }
 
   // Play a single note like a realistic upright piano
@@ -154,13 +208,49 @@ class AudioManager {
       }
     }
 
-    // 2. Play each measure and note
+    // 2. Play each measure with chords (Beat 1, Beat 3) and melody notes simultaneously
     targetMeasures.forEach((measure, mRelIdx) => {
       const realMeasureIdx = startMeasureOffset + mRelIdx;
+      const measureStartDelay = delay;
 
+      const hasChords = Boolean(measure.chord1 || measure.chord2);
+      const hasNotes = measure.notes.length > 0;
+
+      // Skip completely empty measures if there are no chords and no notes
+      if (!hasChords && !hasNotes) {
+        return;
+      }
+
+      // 2-A. Play Chord 1 (Beat 1)
+      if (measure.chord1) {
+        // If chord2 is present, chord1 lasts 2 beats. If chord2 is omitted (생략), chord1 covers all 4 beats
+        const chord1DurationBeats = measure.chord2 ? 2 : 4;
+        const chord1DurationSec = chord1DurationBeats * beatDuration;
+
+        const chord1TimeoutId = window.setTimeout(() => {
+          if (!this.isPlaying) return;
+          this.playChord(measure.chord1!, chord1DurationSec * 0.98);
+        }, measureStartDelay * 1000);
+        this.timeouts.push(chord1TimeoutId);
+      }
+
+      // 2-B. Play Chord 2 (Beat 3 - optional / 생략)
+      if (measure.chord2) {
+        const chord2StartDelay = measureStartDelay + 2 * beatDuration;
+        const chord2DurationSec = 2 * beatDuration;
+
+        const chord2TimeoutId = window.setTimeout(() => {
+          if (!this.isPlaying) return;
+          this.playChord(measure.chord2!, chord2DurationSec * 0.98);
+        }, chord2StartDelay * 1000);
+        this.timeouts.push(chord2TimeoutId);
+      }
+
+      // 2-C. Play Melody Notes
+      let noteOffsetBeats = 0;
       measure.notes.forEach((note, noteIdx) => {
         const noteDurationSec = note.durationBeats * beatDuration;
-        const currentDelay = delay;
+        const noteStartDelay = measureStartDelay + noteOffsetBeats * beatDuration;
 
         const timeoutId = window.setTimeout(() => {
           if (!this.isPlaying) return;
@@ -169,11 +259,15 @@ class AudioManager {
           }
           // Sound note
           this.playNote(note.pitch, noteDurationSec * 0.95);
-        }, currentDelay * 1000);
+        }, noteStartDelay * 1000);
 
         this.timeouts.push(timeoutId);
-        delay += noteDurationSec;
+        noteOffsetBeats += note.durationBeats;
       });
+
+      // Advance measure: each measure in 4/4 occupies 4 beats (or total notes if exceeded)
+      const measureTotalBeats = Math.max(4, noteOffsetBeats);
+      delay += measureTotalBeats * beatDuration;
     });
 
     // 3. Completion

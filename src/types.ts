@@ -12,6 +12,8 @@ export interface Measure {
   measureNumber: number;
   notes: NoteItem[];
   totalBeats: number; // max 4 for 4/4
+  chord1?: string | null; // 첫 째박 코드 (Beat 1, e.g. 'C', 'G7', etc.)
+  chord2?: string | null; // 셋 째박 코드 (Beat 3, optional / 생략 가능)
 }
 
 export interface ExamQuestion {
